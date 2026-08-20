@@ -1,0 +1,41 @@
+import tensorflow as tf
+from tensorflow.keras import layers, Model
+
+INPUT_SHAPE = (256, 256, 3)
+NUM_CLASSES = 12
+
+inputs = layers.Input(shape=INPUT_SHAPE)
+
+x = layers.Conv2D(64, 3, padding="same", activation="relu")(inputs)
+
+d1 = layers.Conv2D(64, 3, padding="same", activation="relu")(x)
+d2 = layers.Conv2D(64, 3, padding="same", activation="relu")(layers.Concatenate()([x, d1]))
+d3 = layers.Conv2D(64, 3, padding="same", activation="relu")(layers.Concatenate()([x, d1, d2]))
+
+x = layers.Concatenate()([x, d1, d2, d3])
+x = layers.Conv2D(128, 3, padding="same", activation="relu")(x)
+x = layers.MaxPooling2D(2)(x)
+
+d4 = layers.Conv2D(128, 3, padding="same", activation="relu")(x)
+d5 = layers.Conv2D(128, 3, padding="same", activation="relu")(layers.Concatenate()([x, d4]))
+d6 = layers.Conv2D(128, 3, padding="same", activation="relu")(layers.Concatenate()([x, d4, d5]))
+
+x = layers.Concatenate()([x, d4, d5, d6])
+x = layers.Conv2D(256, 3, padding="same", activation="relu")(x)
+
+x = layers.UpSampling2D(2)(x)
+x = layers.Conv2D(128, 3, padding="same", activation="relu")(x)
+x = layers.UpSampling2D(2)(x)
+x = layers.Conv2D(64, 3, padding="same", activation="relu")(x)
+
+outputs = layers.Conv2D(NUM_CLASSES, 1, padding="same", activation="softmax")(x)
+
+model = Model(inputs, outputs)
+
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.summary()
