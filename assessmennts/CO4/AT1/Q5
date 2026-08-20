@@ -1,0 +1,46 @@
+import tensorflow as tf
+from tensorflow.keras.applications import InceptionV3
+from tensorflow.keras.applications.inception_v3 import preprocess_input
+from tensorflow.keras.layers import Input, Dense, LSTM, Embedding, Dropout, Add
+from tensorflow.keras.models import Model
+
+IMG_SIZE = (299, 299)
+VOCAB_SIZE = 10000
+EMBEDDING_DIM = 256
+LSTM_UNITS = 512
+MAX_LENGTH = 30
+
+cnn = InceptionV3(weights="imagenet", include_top=False, pooling="avg")
+
+for layer in cnn.layers:
+    layer.trainable = False
+
+video_input = Input(shape=(None, 299, 299, 3))
+frame_features = tf.keras.layers.TimeDistributed(cnn)(video_input)
+
+encoder = Dense(EMBEDDING_DIM, activation="relu")(frame_features)
+encoder = LSTM(LSTM_UNITS)(encoder)
+
+caption_input = Input(shape=(MAX_LENGTH,))
+caption_embedding = Embedding(VOCAB_SIZE, EMBEDDING_DIM)(caption_input)
+
+decoder_lstm = LSTM(LSTM_UNITS, return_sequences=True)
+decoder_output = decoder_lstm(
+    caption_embedding,
+    initial_state=[
+        Dense(LSTM_UNITS, activation="tanh")(encoder),
+        Dense(LSTM_UNITS, activation="tanh")(encoder)
+    ]
+)
+
+output = Dense(VOCAB_SIZE, activation="softmax")(decoder_output)
+
+model = Model([video_input, caption_input], output)
+
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.summary()
