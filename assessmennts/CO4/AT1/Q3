@@ -1,0 +1,45 @@
+import tensorflow as tf
+from tensorflow.keras import layers, Model
+
+src_vocab = 10000
+tgt_vocab = 10000
+embedding_dim = 256
+units = 256
+max_len = 50
+
+encoder_inputs = layers.Input(shape=(max_len,))
+encoder_embedding = layers.Embedding(src_vocab, embedding_dim)(encoder_inputs)
+
+encoder_bi = layers.Bidirectional(
+    layers.LSTM(units, return_sequences=True, return_state=True)
+)
+
+encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder_bi(encoder_embedding)
+
+state_h = layers.Concatenate()([forward_h, backward_h])
+state_c = layers.Concatenate()([forward_c, backward_c])
+
+decoder_inputs = layers.Input(shape=(max_len,))
+decoder_embedding = layers.Embedding(tgt_vocab, embedding_dim)(decoder_inputs)
+
+decoder_lstm = layers.LSTM(units * 2, return_sequences=True)
+decoder_outputs = decoder_lstm(
+    decoder_embedding,
+    initial_state=[state_h, state_c]
+)
+
+attention = layers.Attention()
+context = attention([decoder_outputs, encoder_outputs])
+
+decoder_concat = layers.Concatenate()([decoder_outputs, context])
+outputs = layers.Dense(tgt_vocab, activation="softmax")(decoder_concat)
+
+model = Model([encoder_inputs, decoder_inputs], outputs)
+
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.summary()
