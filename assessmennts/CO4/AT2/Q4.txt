@@ -1,0 +1,61 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.preprocessing import MinMaxScaler
+
+data = pd.read_csv("stock_data.csv")
+
+features = data[["Open", "High", "Low", "Close", "Volume"]].values
+
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(features)
+
+time_steps = 60
+
+X = []
+y = []
+
+for i in range(time_steps, len(scaled_data)):
+    X.append(scaled_data[i-time_steps:i])
+    y.append(scaled_data[i, 3])
+
+X = np.array(X)
+y = np.array(y)
+
+split = int(len(X) * 0.8)
+
+X_train = X[:split]
+X_test = X[split:]
+y_train = y[:split]
+y_test = y[split:]
+
+model = Sequential([
+    LSTM(128, return_sequences=True, input_shape=(time_steps, X.shape[2])),
+    Dropout(0.2),
+    LSTM(64, return_sequences=True),
+    Dropout(0.2),
+    LSTM(32),
+    Dropout(0.2),
+    Dense(16, activation="relu"),
+    Dense(1)
+])
+
+model.compile(
+    optimizer="adam",
+    loss="mean_squared_error",
+    metrics=["mae"]
+)
+
+model.fit(
+    X_train,
+    y_train,
+    epochs=50,
+    batch_size=32,
+    validation_split=0.1
+)
+
+predictions = model.predict(X_test)
+
+model.save("lstm_stock_prediction.h5")
